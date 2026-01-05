@@ -18,10 +18,12 @@
 
 //Servomotor pin
 #define servoPin 8
-Servo servo; //
+Servo servo;
 
 int distanceLeft, distanceFront, distanceRight; //distances
 int minimalDistance = 15;
+int baseSpeed=150; //Normal crusing speed
+int turnSpeed=80; //Reduce speed for inner wheels druing turning
 
 void setup() {
   // put your setup code here, to run once:
@@ -47,8 +49,8 @@ void setup() {
   pinMode(trigger, OUTPUT);
   pinMode(echo, INPUT);
   //Set speed
-  analogWrite(enA, 200);
-  analogWrite(enB, 200);
+  analogWrite(enA, baseSpeed);
+  analogWrite(enB, baseSpeed);
   //Initalization of servomotor
   pinMode(servoPin, OUTPUT);
   servo.attach(servoPin); //Attach to servo object
@@ -76,24 +78,29 @@ void loop() {
   Serial.print("Distance Front: ");
   Serial.print(distanceFront);
 
-  if(digitalRead(RS)==0 && digitalRead(LS)==0){
-    //line is detected by both sensors
-    if(distanceFront > minimalDistance){
-      //if no obstacle is seen under the set minimal distance, continue going forward
+  //Obstacle detection
+  if(distanceFront>0 && distanceFront < minimalDistance){
+    //stop and look around
+    checkSide();
+  }
+  else{
+    //Line following logic
+    if(digitalRead(RS)==0 && digitalRead(LS)==0){
+      //on line
       forward();
     }
+    else if (digitalRead(RS)==1 && digitalRead(LS)==0){
+      //off track on right
+      turnLeft();
+    }
+    else if (digitalRead(RS)==0 && digitalRead(LS)==1){
+      //off track on left
+      turnRight();
+    }
     else{
-      //otherwise, check the surroundings 
-      checkSide();
+      stop();
     }
   }
-  if(digitalRead(RS)==1 && digitalRead(LS)==0){
-    turnLeft();
-  }
-  if(digitalRead(RS)==0 && digitalRead(LS)==1){
-    turnRight();
-  }
-  delay(10);
 }
 
 
@@ -144,6 +151,7 @@ void checkSide(){
   delay(100);
   for (int angle = 90; angle <= 180; angle += 1)  {
     servo.write(angle);
+    delay(15);
   }
   delay(300);
   distanceRight = ultrasonicRead();
@@ -172,6 +180,8 @@ void checkSide(){
 //Motor movement
 void forward(){
   //goes forward - both sides go forward
+  analogWrite(enA, baseSpeed);
+  analogWrite(enB, baseSpeed);
   digitalWrite(in1, LOW); //Right backward LOW
   digitalWrite(in2, HIGH); //Right forward HIGH 
   digitalWrite(in3, HIGH); //Left forward HIGH
@@ -180,6 +190,8 @@ void forward(){
 
 void backward(){
   //goes backward - both sides go backwards
+  analogWrite(enA, baseSpeed);
+  analogWrite(enB, baseSpeed);
   digitalWrite(in1, HIGH); //Right backward HIGH
   digitalWrite(in2, LOW); //Right forward LOW 
   digitalWrite(in3, LOW); //Left forward LOW
@@ -187,23 +199,29 @@ void backward(){
 }
 
 void turnLeft(){
-  //left side forward, right side backward
-  digitalWrite(in1, HIGH); //Right backward HIGH
-  digitalWrite(in2, LOW); //Right forward LOW 
+  //right side faster
+  analogWrite(enA, baseSpeed); //Right side fast
+  analogWrite(enB, turnSpeed);  //Left side slow
+  digitalWrite(in1, LOW); //Right backward LOE
+  digitalWrite(in2, HIGH); //Right forward HIGH 
   digitalWrite(in3, HIGH); //Left forward HIGH
   digitalWrite(in4, LOW); //Left backward LOW
 }
 
 void turnRight(){
-  //left side backward, right side forward
+  //left side faster
+  analogWrite(enA, turnSpeed); //Right side slow
+  analogWrite(enB, baseSpeed);  //Left side fast
   digitalWrite(in1, LOW); //Right backward LOW
   digitalWrite(in2, HIGH); //Right forward HIGH 
-  digitalWrite(in3, LOW); //Left forward LOW
-  digitalWrite(in4, HIGH); //Left backward HIGH
+  digitalWrite(in3, HIGH); //Left forward HIGH
+  digitalWrite(in4, LOW); //Left backward LOW
 }
 
 void stop(){
   //everything on low
+  analogWrite(enA, 0);
+  analogWrite(enB, 0);
   digitalWrite(in1, LOW);
   digitalWrite(in2, LOW);
   digitalWrite(in3, LOW);
