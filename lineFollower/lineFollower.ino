@@ -1,16 +1,27 @@
 #include <Servo.h>
 
-#define enA //L298N H bridge pins
-#define in1 //Right motors backward pin (GND)
-#define in2 //Right motors forward pin (VCC)
-#define in3 //Left motors forward pin (VCC)
-#define in4 //Left motors backward pin (GND)
-#define enB
+//L298N H bridge pins
+#define enA 3 //For speed control, must be connected to PMW capable pins(with tilda)
+#define in1 2 //Right motors backward pin (GND)
+#define in2 4 //Right motors forward pin (VCC)
+#define in3 5 //Left motors forward pin (VCC)
+#define in4 7 //Left motors backward pin (GND)
+#define enB 6 //For speed control, must be connected to PMW capable pins(with tilda)
 
-#define servoPin 8 //Servo pin
+//Left and Right IR sensors pins
+#define LS A0 
+#define RS A1
+
+//Ultrasound pins
+#define echo 9
+#define trigger 10
+
+//Servomotor pin
+#define servoPin 8
 Servo servo; //
 
 int distanceLeft, distanceFront, distanceRight; //distances
+int minimalDistance = 15;
 
 void setup() {
   // put your setup code here, to run once:
@@ -23,11 +34,26 @@ void setup() {
      buzzer - digital?
      leds -> OUTPUT - digital?
   */
-  pinMode();
-  pinMode();
-  pinMode();
+  //Initialization of motor pins
+  pinMode(enA, OUTPUT);
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
+  pinMode(enB, OUTPUT);
+  //Initialization of sensor pins
+  pinMode(LS, INPUT);
+  pinMode(RS, INPUT);
+  pinMode(trigger, OUTPUT);
+  pinMode(echo, INPUT);
+  //Set speed
+  analogWrite(enA, 200);
+  analogWrite(enB, 200);
+  //Initalization of servomotor
   pinMode(servoPin, OUTPUT);
   servo.attach(servoPin); //Attach to servo object
+
+  //Test servo movement
   for (int angle = 90; angle <= 180; angle += 1)  {
     servo.write(angle);
     delay(15);  }
@@ -54,7 +80,7 @@ void loop() {
     //line is detected by both sensors
     if(distanceFront > minimalDistance){
       //if no obstacle is seen under the set minimal distance, continue going forward
-      forward()
+      forward();
     }
     else{
       //otherwise, check the surroundings 
@@ -86,10 +112,10 @@ long ultrasonicRead(){
 
 //Decides which way to continue based on the larger distance between both sides 
 void compareDistance(){
-  (if distanceLeft > distanceRight){
+  if (distanceLeft > distanceRight){
     turnLeft();
     delay(500);
-    forword(600);
+    forward();
     delay(600);
     turnRight();
     delay(500);
@@ -101,7 +127,7 @@ void compareDistance(){
   else{
     turnRight();
     delay(500);
-    forword(600);
+    forward();
     delay(600);
     turnLeft();
     delay(500);
