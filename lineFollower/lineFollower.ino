@@ -87,7 +87,7 @@ void loop() {
     //Line following logic
     if(digitalRead(RS)==0 && digitalRead(LS)==0){
       //on line
-      forward();
+      forward(baseSpeed);
     }
     else if (digitalRead(RS)==1 && digitalRead(LS)==0){
       //off track on right
@@ -98,7 +98,8 @@ void loop() {
       turnRight();
     }
     else{
-      stop();
+      //lost state - it should slowly search for the line again
+      forward(80);
     }
   }
 }
@@ -120,29 +121,37 @@ long ultrasonicRead(){
 //Decides which way to continue based on the larger distance between both sides 
 void compareDistance(){
   if (distanceLeft > distanceRight){
-    turnLeft();
-    delay(500);
-    forward();
-    delay(600);
-    turnRight();
-    delay(500);
-    forward();
-    delay(600);
-    turnRight();
-    delay(400);
+    pivotLeft();
+      delay(500);
+    forward(baseSpeed);
+      delay(600);
+    pivotRight();
+      delay(500);
+    forward(baseSpeed);
+      delay(600);
+    pivotRight();
+    long startTime=millis();
+    while(digitalRead(LS)==0 && (millis()-startTime<2000)){
+      //Spin until left sensor hits black - give up if its not found in 2 seconds;
+    }
   }
   else{
-    turnRight();
+    pivotRight();
     delay(500);
-    forward();
+    forward(baseSpeed);
     delay(600);
-    turnLeft();
+    pivotLeft();
     delay(500);
-    forward();
+    forward(baseSpeed);
     delay(600);
-    turnLeft();
-    delay(400);
+    pivotLeft();
+    long startTime=millis();
+    while(digitalRead(RS)==0 && (millis()-startTime<2000)){
+      //Spin until right sensor hits black
+    }
   }
+  stop();
+  forward(baseSpeed); //Resume
 }
 
 //Move the servomotor with the ultrasound sensor and xompare the distances on left and right
@@ -178,10 +187,10 @@ void checkSide(){
 
 
 //Motor movement
-void forward(){
+void forward(int speed){
   //goes forward - both sides go forward
-  analogWrite(enA, baseSpeed);
-  analogWrite(enB, baseSpeed);
+  analogWrite(enA, speed);
+  analogWrite(enB, speed);
   digitalWrite(in1, LOW); //Right backward LOW
   digitalWrite(in2, HIGH); //Right forward HIGH 
   digitalWrite(in3, HIGH); //Left forward HIGH
@@ -218,6 +227,25 @@ void turnRight(){
   digitalWrite(in4, LOW); //Left backward LOW
 }
 
+void pivotLeft(){
+  //For obstacle avoidance - left forward, right backward
+  analogWrite(enA, baseSpeed);
+  analogWrite(enB, baseSpeed);
+  digitalWrite(in1, HIGH); //Right backward HIGH
+  digitalWrite(in2, LOW); //Right forward LOW 
+  digitalWrite(in3, HIGH); //Left forward HIGH
+  digitalWrite(in4, LOW); //Left backward LOW
+}
+
+void pivotRight(){
+  analogWrite(enA, baseSpeed);
+  analogWrite(enB, baseSpeed);
+  digitalWrite(in1, LOW); //Right backward LOW
+  digitalWrite(in2, HIGH); //Right forward HIGH 
+  digitalWrite(in3, LOW); //Left forward LOW
+  digitalWrite(in4, HIGH); //Left backward HIGH
+}
+
 void stop(){
   //everything on low
   analogWrite(enA, 0);
@@ -227,10 +255,3 @@ void stop(){
   digitalWrite(in3, LOW);
   digitalWrite(in4, LOW); 
 }
-
-
-
-
-
-
-
