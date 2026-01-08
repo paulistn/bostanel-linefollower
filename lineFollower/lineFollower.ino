@@ -9,12 +9,12 @@
 #define enB 6 //For speed control, must be connected to PMW capable pins(with tilda)
 
 //Left and Right IR sensors pins
-#define LS A0 
-#define RS A1
+#define LS A1 
+#define RS A0
 
 //Ultrasound pins
-#define echo 9
-#define trigger 10
+#define echo 10
+#define trigger 9
 
 //Servomotor pin
 #define servoPin 8
@@ -22,7 +22,7 @@ Servo servo;
 
 int distanceLeft, distanceFront, distanceRight; //distances
 int minimalDistance = 15;
-int baseSpeed=150; //Normal crusing speed
+int baseSpeed=200; //Normal crusing speed
 int turnSpeed=80; //Reduce speed for inner wheels druing turning
 
 void setup() {
@@ -55,7 +55,18 @@ void setup() {
   pinMode(servoPin, OUTPUT);
   servo.attach(servoPin); //Attach to servo object
 
+  //Starting 
+  Serial.println("Place the robot on the black line.");
+  //The robot won't move until BOTH sensors see the line.
+  while(digitalRead(LS)==1 || digitalRead(RS)==1) {
+    //Both LEDs on the sensors should be ON when you are ready
+    delay(100); 
+  }
+  Serial.println("Line detected! Starting in 2 seconds.");
+  delay(2000);
+
   //Test servo movement
+  servo.write(90);
   for (int angle = 90; angle <= 180; angle += 1)  {
     servo.write(angle);
     delay(15);  }
@@ -76,31 +87,25 @@ void loop() {
   //Show the distance
   distanceFront=ultrasonicRead();
   Serial.print("Distance Front: ");
-  Serial.print(distanceFront);
+  Serial.println(distanceFront);
 
-  //Obstacle detection
-  if(distanceFront>0 && distanceFront < minimalDistance){
-    //stop and look around
-    checkSide();
-  }
-  else{
-    //Line following logic
-    if(digitalRead(RS)==0 && digitalRead(LS)==0){
+  if((digitalRead(RS)==0) && (digitalRead(LS)==0)){
+    if(distanceFront>minimalDistance){
       //on line
       forward(baseSpeed);
     }
-    else if (digitalRead(RS)==1 && digitalRead(LS)==0){
-      //off track on right
-      turnLeft();
-    }
-    else if (digitalRead(RS)==0 && digitalRead(LS)==1){
-      //off track on left
-      turnRight();
-    }
     else{
-      //lost state - it should slowly search for the line again
-      forward(80);
+      //stop and look around
+      checkSide();
     }
+  }
+  else if (digitalRead(RS)==1 && digitalRead(LS)==0){
+    //off track on right
+    pivotLeft();
+  }
+  else if (digitalRead(RS)==0 && digitalRead(LS)==1){
+    //off track on left
+    pivotRight();
   }
 }
 
@@ -112,9 +117,12 @@ long ultrasonicRead(){
   digitalWrite(trigger, HIGH);
   delayMicroseconds(10); //High for 10 microseconds -> sends out an 8 cycle sonic burst from the transmitter, which then bounces of an object and hits the receiver(connected to echo)
   digitalWrite(trigger, LOW);
-  long duration=pulseIn(echo, HIGH); //When sound waves hit the reciever, they turn the echo HIGH for however long the waves were travelling for
+  long duration=pulseIn(echo, HIGH, 30000); //When sound waves hit the reciever, they turn the echo HIGH for however long the waves were travelling for - if no echo in 30ms return 0
   //plusIn function waits for the pin to hit the desired state, starts timing, and stops when it switches to the other state
-  long distance=(duration*.0343)/2;
+  if(duration==0){
+    return 400;
+  }
+  long distance=(duration*0.0343)/2;
   return distance;
 }
 
@@ -130,10 +138,7 @@ void compareDistance(){
     forward(baseSpeed);
       delay(600);
     pivotRight();
-    long startTime=millis();
-    while(digitalRead(LS)==0 && (millis()-startTime<2000)){
-      //Spin until left sensor hits black - give up if its not found in 2 seconds;
-    }
+      delay(400);
   }
   else{
     pivotRight();
@@ -145,13 +150,8 @@ void compareDistance(){
     forward(baseSpeed);
     delay(600);
     pivotLeft();
-    long startTime=millis();
-    while(digitalRead(RS)==0 && (millis()-startTime<2000)){
-      //Spin until right sensor hits black
-    }
+    delay(400);
   }
-  stop();
-  forward(baseSpeed); //Resume
 }
 
 //Move the servomotor with the ultrasound sensor and xompare the distances on left and right
@@ -165,7 +165,7 @@ void checkSide(){
   delay(300);
   distanceRight = ultrasonicRead();
   Serial.print("Distance Right: ");
-  Serial.print(distanceRight);
+  Serial.println(distanceRight);
   delay(100);
   for (int angle = 180; angle >= 0; angle -= 1)  {
     servo.write(angle);
@@ -174,7 +174,7 @@ void checkSide(){
   delay(500);
   distanceLeft = ultrasonicRead();
   Serial.print("Distance Left: ");
-  Serial.print(distanceLeft);
+  Serial.println(distanceLeft);
   delay(100);
   for (int angle = 0; angle <= 90; angle += 1)  {
     servo.write(angle); 
