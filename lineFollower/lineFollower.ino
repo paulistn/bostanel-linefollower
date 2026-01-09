@@ -20,11 +20,20 @@
 #define servoPin 8
 Servo servo;
 
+//Led diodes
+#define blueLED 11
+#define greenLED 12
+#define redLED 13
+
+//Buzzer module
+#define buzzer A3
+
 int distanceLeft, distanceFront, distanceRight; //distances
-int minimalDistance=16;
+int minimalDistance=17;
 int baseSpeed=200; //Normal crusing speed
 int turnSpeed=80; //Reduce speed for inner wheels druing turning
-int boostSpeed=250;
+int boostSpeed=220;
+bool obstacleAlertPlayed = false; //checker for buzzer sound
 
 void setup() {
   // put your setup code here, to run once:
@@ -55,13 +64,19 @@ void setup() {
   //Initalization of servomotor
   pinMode(servoPin, OUTPUT);
   servo.attach(servoPin); //Attach to servo object
+  //Initialize led diodes
+  pinMode(blueLED, OUTPUT);
+  pinMode(greenLED, OUTPUT);
+  pinMode(redLED, OUTPUT);
+  //Initialize buzzer
+  pinMode(buzzer, OUTPUT);
 
   //Starting 
   Serial.println("Place the robot on the black line.");
   //The robot won't move until BOTH sensors see the line.
   while(digitalRead(LS)==1 || digitalRead(RS)==1) {
     //Both LEDs on the sensors should be ON when you are ready
-    delay(100); 
+    delay(100);
   }
   Serial.println("Line detected! Starting in 2 seconds.");
   delay(2000);
@@ -74,7 +89,7 @@ void setup() {
   for (int angle = 150; angle >= 30; angle -= 2)  {
     servo.write(angle);
     delay(20);  }
-  for (int angle = 30; angle <= 150; angle += 2)  {
+  for (int angle = 30; angle <= 90; angle += 2)  {
     servo.write(angle); 
     delay(20); }
   servo.write(90);
@@ -93,20 +108,29 @@ void loop() {
   if((digitalRead(RS)==0) && (digitalRead(LS)==0)){
     if(distanceFront>minimalDistance){
       //on line
+      obstacleAlertPlayed=false; //reset the value
+      setLEDs(HIGH, LOW, LOW);
       forward(baseSpeed);
     }
     else{
       //stop and look around
+      setLEDs(LOW, LOW, LOW);
+      if (!obstacleAlertPlayed){
+        obstacleJingle();
+        obstacleAlertPlayed=true;
+      }
       checkSide();
     }
   }
   else if (digitalRead(RS)==1 && digitalRead(LS)==0){
     //off track on right
-    pivotLeft();
+    setLEDs(HIGH, LOW, LOW);
+    pivotRight();
   }
   else if (digitalRead(RS)==0 && digitalRead(LS)==1){
     //off track on left
-    pivotRight();
+    setLEDs(HIGH, LOW, LOW);
+    pivotLeft();
   }
 }
 
@@ -129,34 +153,35 @@ long ultrasonicRead(){
 
 //Decides which way to continue based on the larger distance between both sides 
 void compareDistance(){
-  if (distanceLeft < distanceRight){
+  if (distanceLeft > distanceRight){
+    setLEDs(LOW, HIGH, LOW);
     //Turn left off the line
     pivotLeft();
-    delay(400); //Turn
+    delay(360); //Turn
     stop();
     delay(100);
     
     //Drive forward past obstacle
     forward(baseSpeed);
-    delay(400); //Drive distance to clear obstacle
+    delay(600); //Drive distance to clear obstacle
     stop();
     delay(100);
     
     //Turn rightm parallel to the original path
     pivotRight();
-    delay(300); //Turn
+    delay(360); //Turn
     stop();
     delay(100);
     
     //Drive forward alongside obstacle
     forward(baseSpeed);
-    delay(400); //Drive distance to pass obstacle
+    delay(500); //Drive distance to pass obstacle
     stop();
     delay(100);
     
     //Turn right towards the line
     pivotRight();
-    delay(300); //Turn
+    delay(360); //Turn
     stop();
     delay(100);
     
@@ -180,12 +205,13 @@ void compareDistance(){
     }
     //If both sensors on line, we're already centered
     //Delays might need calibration for turn angles and distance
-    
+    setLEDs(LOW, LOW, LOW);
   }
   else {
     //Turn right
+    setLEDs(LOW, LOW, HIGH);
     pivotRight();
-    delay(400);
+    delay(360);
     stop();
     delay(100);
     
@@ -195,17 +221,17 @@ void compareDistance(){
     delay(100);
     
     pivotLeft();
-    delay(300);
+    delay(360);
     stop();
     delay(100);
     
     forward(baseSpeed);
-    delay(400);
+    delay(500);
     stop();
     delay(100);
     
     pivotLeft();
-    delay(300);
+    delay(360);
     stop();
     delay(100);
     
@@ -223,6 +249,7 @@ void compareDistance(){
       pivotLeft();
       delay(150);
     }
+    setLEDs(LOW, LOW, LOW);
   }
 }
 
@@ -251,6 +278,20 @@ void checkSide(){
   servo.write(90);
   delay(400);
   compareDistance();
+}
+
+//Buzzer sound
+void obstacleJingle(){
+  tone(buzzer, 1000, 200); //1000 Hz for 200 ms
+  delay(220);  
+}
+
+
+//LED set-up
+void setLEDs(bool green, bool blue, bool red){
+  digitalWrite(greenLED, green);
+  digitalWrite(blueLED, blue);
+  digitalWrite(redLED, red);
 }
 
 
@@ -296,22 +337,22 @@ void turnRight(){
 }
 
 void pivotLeft(){
-  //For obstacle avoidance - left forward, right backward
-  analogWrite(enA, boostSpeed);
-  analogWrite(enB, boostSpeed);
-  digitalWrite(in1, HIGH); //Right backward HIGH
-  digitalWrite(in2, LOW); //Right forward LOW 
-  digitalWrite(in3, HIGH); //Left forward HIGH
-  digitalWrite(in4, LOW); //Left backward LOW
-}
-
-void pivotRight(){
+  //For obstacle avoidance - left backward, right forward
   analogWrite(enA, boostSpeed);
   analogWrite(enB, boostSpeed);
   digitalWrite(in1, LOW); //Right backward LOW
   digitalWrite(in2, HIGH); //Right forward HIGH 
   digitalWrite(in3, LOW); //Left forward LOW
   digitalWrite(in4, HIGH); //Left backward HIGH
+}
+
+void pivotRight(){
+  analogWrite(enA, boostSpeed);
+  analogWrite(enB, boostSpeed);
+  digitalWrite(in1, HIGH); //Right backward HIGH
+  digitalWrite(in2, LOW); //Right forward LOW 
+  digitalWrite(in3, HIGH); //Left forward HIGH
+  digitalWrite(in4, LOW); //Left backward LOW
 }
 
 void stop(){
