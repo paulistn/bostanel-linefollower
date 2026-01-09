@@ -21,9 +21,10 @@
 Servo servo;
 
 int distanceLeft, distanceFront, distanceRight; //distances
-int minimalDistance = 15;
+int minimalDistance=16;
 int baseSpeed=200; //Normal crusing speed
 int turnSpeed=80; //Reduce speed for inner wheels druing turning
+int boostSpeed=250;
 
 void setup() {
   // put your setup code here, to run once:
@@ -67,15 +68,15 @@ void setup() {
 
   //Test servo movement
   servo.write(90);
-  for (int angle = 90; angle <= 180; angle += 1)  {
+  for (int angle = 90; angle <= 150; angle += 2)  {
     servo.write(angle);
-    delay(15);  }
-  for (int angle = 180; angle >= 0; angle -= 1)  {
+    delay(20);  }
+  for (int angle = 150; angle >= 30; angle -= 2)  {
     servo.write(angle);
-    delay(15);  }
-  for (int angle = 0; angle <= 90; angle += 1)  {
+    delay(20);  }
+  for (int angle = 30; angle <= 150; angle += 2)  {
     servo.write(angle); 
-    delay(15); }
+    delay(20); }
   servo.write(90);
 
   distanceFront=ultrasonicRead();
@@ -128,60 +129,127 @@ long ultrasonicRead(){
 
 //Decides which way to continue based on the larger distance between both sides 
 void compareDistance(){
-  if (distanceLeft > distanceRight){
+  if (distanceLeft < distanceRight){
+    //Turn left off the line
     pivotLeft();
-      delay(500);
+    delay(400); //Turn
+    stop();
+    delay(100);
+    
+    //Drive forward past obstacle
     forward(baseSpeed);
-      delay(600);
+    delay(400); //Drive distance to clear obstacle
+    stop();
+    delay(100);
+    
+    //Turn rightm parallel to the original path
     pivotRight();
-      delay(500);
+    delay(300); //Turn
+    stop();
+    delay(100);
+    
+    //Drive forward alongside obstacle
     forward(baseSpeed);
-      delay(600);
+    delay(400); //Drive distance to pass obstacle
+    stop();
+    delay(100);
+    
+    //Turn right towards the line
     pivotRight();
-      delay(400);
+    delay(300); //Turn
+    stop();
+    delay(100);
+    
+    //Drive forward until the sensors finds the line
+    forward(baseSpeed);
+    while(digitalRead(LS)==1 && digitalRead(RS)==1) {
+      delay(10); //Keep going until one sensor hits the line
+    }
+    stop();
+    delay(100);
+    
+    //Align with the line
+    if(digitalRead(LS)==0 && digitalRead(RS)==1) {
+      //If the left sensor is on the line, pivot left to center
+      pivotLeft();
+      delay(150);
+    } else if(digitalRead(RS)==0 && digitalRead(LS)==1) {
+      //If the right sensor on the line, pivot right to center
+      pivotRight();
+      delay(150);
+    }
+    //If both sensors on line, we're already centered
+    //Delays might need calibration for turn angles and distance
+    
   }
-  else{
+  else {
+    //Turn right
     pivotRight();
-    delay(500);
-    forward(baseSpeed);
-    delay(600);
-    pivotLeft();
-    delay(500);
-    forward(baseSpeed);
-    delay(600);
-    pivotLeft();
     delay(400);
+    stop();
+    delay(100);
+    
+    forward(baseSpeed);
+    delay(600);
+    stop();
+    delay(100);
+    
+    pivotLeft();
+    delay(300);
+    stop();
+    delay(100);
+    
+    forward(baseSpeed);
+    delay(400);
+    stop();
+    delay(100);
+    
+    pivotLeft();
+    delay(300);
+    stop();
+    delay(100);
+    
+    forward(baseSpeed);
+    while(digitalRead(LS)==1 && digitalRead(RS)==1) {
+      delay(10);
+    }
+    stop();
+    delay(100);
+    
+    if(digitalRead(RS)==0 && digitalRead(LS)==1) {
+      pivotRight();
+      delay(150);
+    } else if(digitalRead(LS)==0 && digitalRead(RS)==1) {
+      pivotLeft();
+      delay(150);
+    }
   }
 }
 
-//Move the servomotor with the ultrasound sensor and xompare the distances on left and right
+//Move the servomotor with the ultrasound sensor and compare the distances on left and right
 void checkSide(){
   stop();
+  delay(200);
+  servo.write(150);
+  delay(600);
+  distanceLeft = ultrasonicRead();
   delay(100);
-  for (int angle = 90; angle <= 180; angle += 1)  {
-    servo.write(angle);
-    delay(15);
-  }
-  delay(300);
-  distanceRight = ultrasonicRead();
-  Serial.print("Distance Right: ");
-  Serial.println(distanceRight);
-  delay(100);
-  for (int angle = 180; angle >= 0; angle -= 1)  {
-    servo.write(angle);
-    delay(15);  
-  }
-  delay(500);
   distanceLeft = ultrasonicRead();
   Serial.print("Distance Left: ");
   Serial.println(distanceLeft);
   delay(100);
-  for (int angle = 0; angle <= 90; angle += 1)  {
-    servo.write(angle); 
-    delay(15); 
-  }
+
+  servo.write(30);
+  delay(600);
+  distanceRight = ultrasonicRead();
+  delay(100);
+  distanceRight = ultrasonicRead();
+  Serial.print("Distance Right: ");
+  Serial.println(distanceRight);
+  delay(100);
+
   servo.write(90);
-  delay(300);
+  delay(400);
   compareDistance();
 }
 
@@ -229,8 +297,8 @@ void turnRight(){
 
 void pivotLeft(){
   //For obstacle avoidance - left forward, right backward
-  analogWrite(enA, baseSpeed);
-  analogWrite(enB, baseSpeed);
+  analogWrite(enA, boostSpeed);
+  analogWrite(enB, boostSpeed);
   digitalWrite(in1, HIGH); //Right backward HIGH
   digitalWrite(in2, LOW); //Right forward LOW 
   digitalWrite(in3, HIGH); //Left forward HIGH
@@ -238,8 +306,8 @@ void pivotLeft(){
 }
 
 void pivotRight(){
-  analogWrite(enA, baseSpeed);
-  analogWrite(enB, baseSpeed);
+  analogWrite(enA, boostSpeed);
+  analogWrite(enB, boostSpeed);
   digitalWrite(in1, LOW); //Right backward LOW
   digitalWrite(in2, HIGH); //Right forward HIGH 
   digitalWrite(in3, LOW); //Left forward LOW
